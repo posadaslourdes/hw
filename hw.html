@@ -1,0 +1,162 @@
+<html>
+
+<head>
+<style type="text/css">
+.knitr .inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.rimage .left {
+  text-align: left;
+}
+.rimage .right {
+  text-align: right;
+}
+.rimage .center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+<title>hw</title>
+</head>
+
+<body>
+
+<p>This is an R HTML document. When you click the <b>Knit HTML</b> button a web page will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:</p>
+
+<div class="chunk" id="unnamed-chunk-1"><div class="rcode"><div class="source"><pre class="knitr r">1.Data loading and tidy data
+
+a. Check packages
+b. Read Training and test data
+c. Tidy data
+
+```{r data}
+<span class="hl com">#packages</span>
+#<span class="hl kwd">install.packages</span>(<span class="hl str">&quot;caret&quot;</span>)
+#<span class="hl kwd">install.packages</span>(<span class="hl str">&quot;randomForest&quot;</span>)
+#<span class="hl kwd">install.packages</span>(<span class="hl str">&quot;rpart&quot;</span>)
+#<span class="hl kwd">install.packages</span>(<span class="hl str">&quot;gbm&quot;</span>)
+#<span class="hl kwd">install.packages</span>(<span class="hl str">&quot;e1071&quot;</span>)
+<span class="hl kwd">library</span>(e1071)
+<span class="hl kwd">library</span>(gbm)
+<span class="hl kwd">library</span>(rpart.plot) # Decision Tree plot
+<span class="hl kwd">library</span>(caret)
+<span class="hl kwd">library</span>(randomForest) #Random forest <span class="hl kwa">for</span> classification and regression
+<span class="hl kwd">library</span>(rpart) # Regressive Partitioning and Regression trees
+<span class="hl com">#read data from web </span>
+Url1 &lt;- <span class="hl str">&quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv&quot;</span>
+Url2&lt;- <span class="hl str">&quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;</span>
+<span class="hl com">#tidy data: trasnformation to Na all strings variables <span class="hl kwa">NA</span>, DIV/0!, deleting missing values and removing unnecesary columns</span>
+train &lt;- <span class="hl kwd">read.csv</span>(<span class="hl kwd">url</span>(Url1), na.strings=<span class="hl kwd">c</span>(<span class="hl str">&quot;<span class="hl kwa">NA</span>&quot;</span>,<span class="hl str">&quot;#DIV/0!&quot;</span>,<span class="hl str">&quot;&quot;</span>))
+test &lt;- <span class="hl kwd">read.csv</span>(<span class="hl kwd">url</span>(Url2), na.strings=<span class="hl kwd">c</span>(<span class="hl str">&quot;<span class="hl kwa">NA</span>&quot;</span>,<span class="hl str">&quot;#DIV/0!&quot;</span>,<span class="hl str">&quot;&quot;</span>))
+train&lt;-train[,<span class="hl kwd">colSums</span>(<span class="hl kwd">is.na</span>(train)) == 0]
+test &lt;-test[,<span class="hl kwd">colSums</span>(<span class="hl kwd">is.na</span>(test)) == 0]
+train &lt;- train[,-<span class="hl kwd">c</span>(1:6)]
+test &lt;- test[, -<span class="hl kwd">c</span>(1:6)]
+<span class="hl kwd">head</span>(train)
+<span class="hl kwd">summary</span>(train$classe)
+train$classe = <span class="hl kwd">factor</span>(train$classe)
+<span class="hl kwd">head</span>(test)
+<span class="hl kwd">summary</span>(test$classe)
+```
+
+2. Models and prediction of variable classe
+a.Reproducible: set seed
+b.Data <span class="hl kwd">spliting</span> (train) 70% <span class="hl kwa">in</span> <span class="hl kwd">generation</span> (training) and 30% validation <span class="hl kwd">sets</span>(validation).
+c.Generating model <span class="hl kwa">in</span> generation set
+d.Prediction <span class="hl kwa">in</span> validation set
+e. Summary of accuracy of models on predicting classe. Selection of best model looking to accuracy <span class="hl kwa">in</span> the confusion matrix.And estimation of the out-of-sample error that is calculated as 1-accuracy 
+The accuracy is the proportion of correct classified observation <span class="hl kwa">in</span> training set. The expected accuracy is the expected accuracy <span class="hl kwa">in</span> the test data set 
+e. Prediction with selected model <span class="hl kwa">in</span> test set
+
+
+```{r models, echo=<span class="hl kwa">TRUE</span>}
+#<span class="hl kwd">set.seed</span>(12345) 
+training &lt;- <span class="hl kwd">createDataPartition</span>(train$classe, p = 0.70, list = <span class="hl kwa">FALSE</span>)
+validation &lt;- train[-training, ]
+train &lt;- train[training, ]
+#Models with generation set: random <span class="hl kwd">forest</span>(rf),  Linear discriminant <span class="hl kwd">analysis</span> (LDA), and Regressive <span class="hl kwd">Partitioning</span> (rpart)
+<span class="hl com">#<span class="hl kwa">while</span> running 1st model an error ocurred</span>
+#<span class="hl kwd">install.packages</span>(<span class="hl str">&quot;e1071&quot;</span>)
+<span class="hl kwd">library</span>(e1071)
+<span class="hl com">#models generation with different methods</span>
+mod1 &lt;- <span class="hl kwd">train</span>(classe ~ ., data=train, method=<span class="hl str">&quot;rf&quot;</span>)
+mod2 &lt;- <span class="hl kwd">train</span>(classe ~ ., data=train, method=<span class="hl str">&quot;lda&quot;</span>)
+mod3 &lt;- <span class="hl kwd">train</span>(classe ~ ., data=train, method=<span class="hl str">&quot;rpart&quot;</span>)
+<span class="hl kwd">importance</span>(mod1)#see predictors importance
+<span class="hl kwd">importance</span>(mod2)
+<span class="hl kwd">importance</span>(mod3)
+<span class="hl kwd">rm</span>(training)
+<span class="hl com">#prediction <span class="hl kwa">in</span> validation set</span>
+pred1 &lt;- <span class="hl kwd">predict</span>(mod1, validation)
+pred2 &lt;- <span class="hl kwd">predict</span>(mod2, validation)
+pred3 &lt;- <span class="hl kwd">predict</span>(mod3, validation)
+<span class="hl com">#Summary of accuracy of models on predicting classe: confusion matrices</span>
+<span class="hl kwd">confusionMatrix</span>(pred1, validation$classe)
+<span class="hl kwd">confusionMatrix</span>(pred2, validation$classe)
+<span class="hl kwd">confusionMatrix</span>(pred3, validation$classe)
+ <span class="hl com">## Model 1 has the best accuracy 0.9964, this is the selected model  with an error of 0.0036</span>
+<span class="hl com">#FOR QUIZ</span>
+testprediction &lt;- <span class="hl kwd">predict</span>(mod1, test)
+testprediction
+<span class="hl com">#testprediction results</span>
+<span class="hl com">#  [1] B A B A A E D B A A B C B A E E A B B B</span>
+<span class="hl com">#Levels: A B C D E</span>
+
+```
+</pre></div>
+<div class="error"><pre class="knitr r">## Error: &lt;text&gt;:1:3: unexpected symbol
+## 1: 1.Data
+##       ^
+</pre></div>
+</div></div>
+
+
+</body>
+</html>
